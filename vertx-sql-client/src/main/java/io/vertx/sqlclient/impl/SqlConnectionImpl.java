@@ -100,6 +100,16 @@ public abstract class SqlConnectionImpl<C extends SqlConnectionImpl> extends Sql
     return (C) this;
   }
 
+  /**
+   * @deprecated This function will change in vert.x 4 and it's not supposed to be
+   * used if you are working with vert.x 3.
+   */
+  @Deprecated
+  public void begin(Handler<AsyncResult<Transaction>> handler) {
+    Transaction transaction = begin();
+    Future.succeededFuture( transaction ).onComplete( handler );
+  }
+
   @Override
   public Transaction begin() {
     return begin(false);
