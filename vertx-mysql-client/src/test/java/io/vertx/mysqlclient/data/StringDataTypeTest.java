@@ -11,11 +11,15 @@
 
 package io.vertx.mysqlclient.data;
 
+import java.util.Random;
+
 import io.vertx.mysqlclient.MySQLConnection;
 import io.vertx.sqlclient.Row;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import io.vertx.sqlclient.Tuple;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -23,6 +27,24 @@ import org.junit.runner.RunWith;
 public class StringDataTypeTest extends MySQLDataTypeTestBase {
   private enum Size {
     x_small, small, medium, large, x_large;
+  }
+
+  @Test
+  public void testBinaryAsParameter(TestContext ctx) {
+    // The columns is defined as binary(5)
+    byte[] b = new byte[2];
+    new Random().nextBytes( b);
+    Buffer buffer = Buffer.buffer( b );
+    MySQLConnection.connect(vertx, options, ctx.asyncAssertSuccess(conn -> {
+      conn.preparedQuery("INSERT INTO datatype (`Binary`, id) VALUES (?,?)").execute( Tuple.of( buffer, 678 ), ctx.asyncAssertSuccess( updateResult -> {
+        conn.preparedQuery("SELECT `Binary` FROM datatype WHERE `Binary` = ?").execute( Tuple.of( buffer ), ctx.asyncAssertSuccess( result -> {
+          ctx.assertEquals(1, result.size());
+          Row row = result.iterator().next();
+          ctx.assertEquals( buffer, row.getValue( 0 ) );
+          conn.close();
+        }));
+      }));
+    }));
   }
 
   @Test
