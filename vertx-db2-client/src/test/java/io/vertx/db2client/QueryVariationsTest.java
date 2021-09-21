@@ -23,6 +23,29 @@ import io.vertx.sqlclient.Tuple;
 public class QueryVariationsTest extends DB2TestBase {
 
   @Test
+  public void testSelectSysibmColumns(TestContext ctx) {
+    connect(ctx.asyncAssertSuccess(conn -> conn
+        .query("select table_name as TABLE_NAME, column_name as COLUMN_NAME, " +
+                   "             case when data_type = 'CHARACTER VARYING' then 'VARCHAR' else data_type end as TYPE_NAME, " +
+                   "             null as COLUMN_SIZE, is_nullable as IS_NULLABLE " +
+                   "from sysibm.columns " +
+                   "order by table_catalog, table_schema, table_name, column_name, ordinal_position" )
+        .execute(
+          ctx.asyncAssertSuccess(rowSet -> {
+            ctx.assertEquals(1, rowSet.size());
+            ctx.assertEquals(Arrays.asList("TABLE_NAME", "COLUMN_NAME", "COLUMN_SIZE", "IS_NULLABLE"), rowSet.columnsNames());
+            RowIterator<Row> rows = rowSet.iterator();
+            ctx.assertTrue(rows.hasNext());
+            Row row = rows.next();
+            // TODO: Add assertions about the content of the row
+            ctx.assertFalse(rows.hasNext());
+            conn.close();
+          })
+        )
+    ));
+  }
+
+  @Test
   public void testFetchFirst(TestContext ctx) {
     connect(ctx.asyncAssertSuccess(conn -> {
       conn.query("select message from immutable order by id fetch first 1 rows only").execute(
