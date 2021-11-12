@@ -50,4 +50,23 @@ public class OracleSimpleQueryTest extends SimpleQueryTestBase {
     async.await();
   }
 
+  @Test
+  public void testMetadata(TestContext ctx) {
+    Async async = ctx.async();
+    this.connector.connect(ctx.asyncAssertSuccess((conn) -> {
+        conn.query("SELECT id, val FROM mutable").execute(ctx.asyncAssertSuccess((r1) -> {
+          ctx.assertNotNull(r1.columnDescriptors());
+          ctx.assertNotNull(r1.columnsNames());
+          ctx.assertEquals("ID", r1.columnsNames().get( 0 ));
+          ctx.assertEquals("VAL", r1.columnsNames().get( 1 ));
+          ctx.assertEquals(2, r1.columnDescriptors().size());
+          ctx.assertEquals("integer", r1.columnDescriptors().get(0).typeName());
+          ctx.assertEquals("varchar(2048)", r1.columnDescriptors().get(1).typeName());
+          // TODO: test other fields
+          async.complete();
+        }));
+    }));
+    async.await();
+  }
+
 }
