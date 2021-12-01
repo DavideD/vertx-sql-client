@@ -90,5 +90,12 @@ VALUES (1, 32767, 2147483647, 9223372036854775807, 123.456, 1.234567, 'HELLO,WOR
 INSERT INTO test_collector
 VALUES (2, 32767, 2147483647, 9223372036854775807, 123.456, 1.234567, 'hello,world');
 
+-- MySQL specific
+DROP TABLE IF EXISTS basicdatatype;
+CREATE TABLE basicdatatype
+(
+    id           INTEGER,
+    rawValue     RAW(255)
+);
 -- Don't forget to commit...
 COMMIT;
