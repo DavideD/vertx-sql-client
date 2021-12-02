@@ -11,13 +11,21 @@
 
 package io.vertx.oracleclient.test;
 
+import java.time.LocalTime;
+import java.time.OffsetTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.function.Consumer;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import io.vertx.codegen.annotations.Nullable;
 import io.vertx.core.Future;
+import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
@@ -37,29 +45,50 @@ public class OracleDatatypesTest extends OracleTestBase {
 
   OraclePool pool;
 
-  private static Future<RowSet<Row>> insertRawValue(SqlConnection conn) {
-    final Tuple params = Tuple.of( 5, Buffer.buffer( "See you space cowboy..." ) );
-    return conn
-            .preparedQuery( "INSERT INTO basicdatatype (id, rawValue) VALUES (?,?)" ).execute( params )
-            .onSuccess( rows -> conn
-                    .preparedQuery( "SELECT rawValue FROM basicDataType WHERE rawValue = ?" )
-                    .execute( Tuple.of( params.getValue( 1 ) ) ) );
-  }
-
   @Before
-  public void setUp() throws Exception {
+  public void setUp() {
     pool = OraclePool.pool( vertx, oracle.options(), new PoolOptions() );
   }
 
   @Test
   public void testRaw(TestContext ctx) {
-    pool.withConnection( OracleDatatypesTest::insertRawValue, ctx
-            .asyncAssertSuccess( rows -> ctx.assertEquals( 1, rows.size() ) )
+    final Buffer rawValue = Buffer.buffer( "See you space cowboy..." );
+    final Tuple params = Tuple.of( 11, rawValue );
+    testField( ctx, params, "rawValue",
+               row -> ctx.assertEquals( row.getBuffer( "rawValue" ), rawValue ) );
+  }
+
+  @Test
+  public void testLocalTime(TestContext ctx) {
+    final LocalTime localTimeValue = LocalTime.MAX.truncatedTo( ChronoUnit.SECONDS );
+    final Tuple params = Tuple.of( 22, localTimeValue );
+    testField( ctx, params, "localTime",
+               row -> ctx.assertEquals( row.getLocalTime( "localTime" ), localTimeValue ) );
+  }
+
+  @Test
+  public void testOffsetTime(TestContext ctx) {
+    final OffsetTime offsetTimeValue = OffsetTime.now( ZoneOffset.ofHours( 7 ) )
+            .truncatedTo( ChronoUnit.SECONDS );
+
+    final Tuple params = Tuple.of( 33, offsetTimeValue );
+    testField( ctx, params, "offsetTime",
+               row -> ctx.assertEquals( row.getOffsetTime( "offsetTime" ), offsetTimeValue ) );
+  }
+
+  private void testField(TestContext ctx, Tuple params, String column, Consumer<Row> assertion) {
+    pool.withConnection( conn -> conn
+            .preparedQuery( "INSERT INTO basicdatatype (id, " + column + ") VALUES (?,?)" )
+            .execute( params )
+            .compose( rows -> conn
+                .preparedQuery( "SELECT " + column + " FROM basicDataType WHERE " + column + " = ?" )
+                .execute( Tuple.of( params.getValue( 1 ) ) ) ),
+                         ctx.asyncAssertSuccess( rows -> assertion.accept( rows.iterator().next() ) )
     );
   }
 
   @After
-  public void tearDown(TestContext ctx) throws Exception {
+  public void tearDown(TestContext ctx) {
     pool.close( ctx.asyncAssertSuccess() );
   }
 }

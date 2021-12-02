@@ -95,7 +95,9 @@ DROP TABLE IF EXISTS basicdatatype;
 CREATE TABLE basicdatatype
 (
     id           INTEGER,
-    rawValue     RAW(255)
+    rawValue     RAW(255),
+    localTime    DATE,
+    offsetTime   DATE
 );
 -- Don't forget to commit...
 COMMIT;
