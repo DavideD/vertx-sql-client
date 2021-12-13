@@ -29,6 +29,7 @@ public class OraclePoolTest extends OracleTestBase {
     "name VARCHAR(100), " +
     "quantity INTEGER)";
   static final String INSERT = "INSERT INTO fruits (id, name, quantity) VALUES (?, ?, ?)";
+  static final String INSERT_SELECT = "INSERT INTO fruits (id, name, quantity) select  55 as id, 'avocado', 55 from fruits where id = 2";
 
   @Test
   public void test() {
@@ -95,6 +96,9 @@ public class OraclePoolTest extends OracleTestBase {
           .flatMap(x -> tx.rollback())
           .eventually(x -> tx.rollback())
       ));
+
+    await( connection.prepare( INSERT_SELECT )
+         .flatMap( ps -> ps.query().execute() ) );
 
     rows = await(connection.query("SELECT * FROM fruits").execute());
     rows.forEach(row -> System.out.printf("[%d] %s : %d%n", row.get(Integer.class, 0), row.get(String.class, 1),
