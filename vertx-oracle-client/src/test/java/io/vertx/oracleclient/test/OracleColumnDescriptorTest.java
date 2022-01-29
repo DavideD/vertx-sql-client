@@ -11,6 +11,8 @@
 
 package io.vertx.oracleclient.test;
 
+import java.sql.JDBCType;
+
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.oracleclient.OraclePool;
@@ -37,14 +39,22 @@ public class OracleColumnDescriptorTest extends OracleTestBase {
 
   @Test
   public void testMetadata(TestContext ctx) {
-    pool.withConnection(conn -> conn.query("SELECT id, val FROM mutable").execute(), ctx.asyncAssertSuccess(rows -> {
+    pool.withConnection(conn -> conn.query("SELECT id, val, current_timestamp FROM mutable").execute(), ctx.asyncAssertSuccess(rows -> {
       ctx.assertNotNull(rows.columnDescriptors());
       ctx.assertNotNull(rows.columnsNames());
+      ctx.assertEquals(3, rows.columnDescriptors().size());
+
       ctx.assertEquals("ID", rows.columnsNames().get(0));
       ctx.assertEquals("VAL", rows.columnsNames().get(1));
-      ctx.assertEquals(2, rows.columnDescriptors().size());
+      ctx.assertEquals("CURRENT_TIMESTAMP", rows.columnsNames().get(2));
+
       ctx.assertEquals("NUMBER", rows.columnDescriptors().get(0).typeName());
       ctx.assertEquals("VARCHAR2", rows.columnDescriptors().get(1).typeName());
+      ctx.assertEquals("TIMESTAMP WITH TIME ZONE", rows.columnDescriptors().get(2).typeName());
+
+      ctx.assertEquals(JDBCType.NUMERIC, rows.columnDescriptors().get(0).jdbcType());
+      ctx.assertEquals(JDBCType.VARCHAR, rows.columnDescriptors().get(1).jdbcType());
+      ctx.assertEquals(JDBCType.TIMESTAMP_WITH_TIMEZONE, rows.columnDescriptors().get(2).jdbcType());
     }));
   }
 
