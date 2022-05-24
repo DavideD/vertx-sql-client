@@ -21,6 +21,8 @@ import io.vertx.ext.unit.junit.RepeatRule;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.sqlclient.PoolOptions;
 import io.vertx.sqlclient.Row;
+import io.vertx.sqlclient.RowSet;
+import io.vertx.sqlclient.SqlConnection;
 import io.vertx.sqlclient.Tuple;
 import org.junit.After;
 import org.junit.Before;
@@ -28,7 +30,12 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collector;
@@ -158,7 +165,63 @@ public class MySQLPoolTest extends MySQLTestBase {
     }));
   }
 
-  @Test
+
+  // Queries executed using preparedQuery before the creation of the temporary table
+	List<Object[]> before = new ArrayList<>();
+	{
+		before.add( new Object[] { "create table SpellBookUS (id integer not null, published date, title varchar(255), forbidden bit not null, primary key (id)) engine=InnoDB", Tuple.tuple() } );
+		before.add( new Object[] { "create table BookUS (id integer not null, published date, title varchar(255), primary key (id)) engine=InnoDB", Tuple.tuple() } );
+		before.add( new Object[] { "create table hibernate_sequence (next_val bigint) engine=InnoDB", Tuple.tuple() } );
+		before.add( new Object[] { "set foreign_key_checks = 1", Tuple.tuple() } );
+		before.add( new Object[] { "insert into SpellBookUS (published, title, forbidden, id) values (?, ?, ?, ?)", Tuple.of( null, "Necronomicon II", false, 6) } );
+	}
+
+	// Queries executed using preparedQuery after the creation of the temporary table
+	List<Object[]> after = new ArrayList<>();
+	{
+		after.add( new Object[] { "insert into ht_BookUS select unionsubcl0_.id as id from ( select id, published, title, null as forbidden, 0 as clazz_ from BookUS union all select id, published, title, forbidden, 1 as clazz_ from SpellBookUS ) unionsubcl0_ where unionsubcl0_.title=?", Tuple.of( "Necronomicon II" ) } );
+		after.add( new Object[] { "delete from SpellBookUS where (id) in (select id from ht_BookUS)", Tuple.tuple()} );
+		after.add( new Object[] { "drop temporary table ht_BookUS", Tuple.tuple()} );
+	}
+
+	@Test
+	public void testLastInsertIdWithSpecifiedValue2(TestContext ctx) {
+		pool.getConnection(ctx.asyncAssertSuccess( conn -> {
+			final Async async = ctx.async();
+			Future<RowSet<Row>> result = Future.succeededFuture();
+			for ( Object[] entry : before ) {
+				System.out.println( entry[0] );
+				result = result.compose( ignore -> conn.preparedQuery( (String) entry[0] )
+						.execute( (Tuple) entry[1] ) );
+			}
+			result.compose( ignore -> conn.query( "select * from SpellBookUS" ).execute()
+							.onComplete( rowSetAsyncResult -> {
+								ctx.assertEquals( 1, rowSetAsyncResult.result().size() );
+							} ) )
+					.compose( ignore -> conn
+					// This needs to be a query
+					.query("create temporary table if not exists ht_BookUS (id integer not null) ")
+					.execute()
+					.compose( ignore2 ->  {
+						Future<RowSet<Row>> result2 = Future.succeededFuture();
+						for ( Object[] entry : after ) {
+							System.out.println( entry[0] );
+							result2 = result2.compose( ignoreAfter -> conn.preparedQuery( (String) entry[0] )
+									.execute( (Tuple) entry[1] ) );
+						}
+						return result2;
+					} ) )
+					.compose( ignore -> conn.query( "select * from SpellBookUS" ).execute()
+							.onComplete( rowSetAsyncResult -> {
+								System.out.println( "Result: " + rowSetAsyncResult );
+								ctx.assertEquals( 0, rowSetAsyncResult.result().size() );
+							} ) )
+					.onSuccess( rows -> async.complete() )
+					.eventually( unused -> conn.close() );
+		} ));
+	}
+
+	@Test
   @Repeat(50)
   public void testNoConnectionLeaks(TestContext ctx) {
     Tuple params = Tuple.of(options.getUser(), options.getDatabase());
