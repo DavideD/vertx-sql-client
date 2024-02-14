@@ -10,7 +10,17 @@
  */
 package io.vertx.oracleclient.impl;
 
-import io.vertx.core.*;
+import java.sql.SQLException;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
+import io.vertx.core.Handler;
+import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
 import io.vertx.core.impl.ContextInternal;
 import io.vertx.core.impl.NoStackTraceThrowable;
 import io.vertx.core.impl.future.PromiseInternal;
@@ -18,17 +28,28 @@ import io.vertx.core.net.SocketAddress;
 import io.vertx.core.spi.metrics.ClientMetrics;
 import io.vertx.core.tracing.TracingPolicy;
 import io.vertx.oracleclient.OracleConnectOptions;
-import io.vertx.oracleclient.impl.commands.*;
+import io.vertx.oracleclient.impl.commands.OracleCloseConnectionCommand;
+import io.vertx.oracleclient.impl.commands.OracleCloseCursorCommand;
+import io.vertx.oracleclient.impl.commands.OracleCloseStatementCommand;
+import io.vertx.oracleclient.impl.commands.OracleCommand;
+import io.vertx.oracleclient.impl.commands.OracleCursorFetchCommand;
+import io.vertx.oracleclient.impl.commands.OracleCursorQueryCommand;
+import io.vertx.oracleclient.impl.commands.OraclePrepareStatementCommand;
+import io.vertx.oracleclient.impl.commands.OraclePreparedBatchQuery;
+import io.vertx.oracleclient.impl.commands.OraclePreparedQueryCommand;
+import io.vertx.oracleclient.impl.commands.OracleSimpleQueryCommand;
+import io.vertx.oracleclient.impl.commands.OracleTransactionCommand;
 import io.vertx.sqlclient.impl.Connection;
-import io.vertx.sqlclient.impl.command.*;
+import io.vertx.sqlclient.impl.command.CloseConnectionCommand;
+import io.vertx.sqlclient.impl.command.CloseCursorCommand;
+import io.vertx.sqlclient.impl.command.CloseStatementCommand;
+import io.vertx.sqlclient.impl.command.CommandBase;
+import io.vertx.sqlclient.impl.command.ExtendedQueryCommand;
+import io.vertx.sqlclient.impl.command.PrepareStatementCommand;
+import io.vertx.sqlclient.impl.command.SimpleQueryCommand;
+import io.vertx.sqlclient.impl.command.TxCommand;
 import io.vertx.sqlclient.spi.DatabaseMetadata;
 import oracle.jdbc.OracleConnection;
-
-import java.sql.SQLException;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 import static io.vertx.oracleclient.impl.Helper.isFatal;
 
@@ -55,6 +76,15 @@ public class OracleJdbcConnection implements Connection {
     this.options = options;
     this.connection = oc;
     this.metadata = metadata;
+  }
+
+  public Object createArray(String typeName, Object elements) {
+	  try {
+		  return connection.createARRAY( typeName, elements );
+	  }
+	  catch (SQLException e) {
+		  throw new RuntimeException( e );
+	  }
   }
 
   @Override

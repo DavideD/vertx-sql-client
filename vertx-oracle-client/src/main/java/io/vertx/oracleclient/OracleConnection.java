@@ -11,6 +11,8 @@
 
 package io.vertx.oracleclient;
 
+import java.util.Objects;
+
 import io.vertx.codegen.annotations.Fluent;
 import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.AsyncResult;
@@ -20,8 +22,6 @@ import io.vertx.core.Vertx;
 import io.vertx.oracleclient.impl.OracleConnectionImpl;
 import io.vertx.sqlclient.PreparedStatement;
 import io.vertx.sqlclient.SqlConnection;
-
-import java.util.Objects;
 
 import static io.vertx.oracleclient.OracleConnectOptions.fromUri;
 
@@ -63,6 +63,8 @@ public interface OracleConnection extends SqlConnection {
   static Future<OracleConnection> connect(Vertx vertx, String connectionUri) {
     return connect(vertx, fromUri(connectionUri));
   }
+
+  Object createArray(String typeName, Object elements);
 
   /**
    * {@inheritDoc}
